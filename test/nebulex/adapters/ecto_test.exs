@@ -65,10 +65,13 @@ defmodule Nebulex.Adapters.EctoTest do
     assert 1000 == amount
   end
 
-  test "put and get_all" do
-    assert Cache.put("key5", "value5")
-    assert Cache.put("key6", "value6")
-    assert Cache.put("key7", "value7")
+  test "put_all and get_all" do
+    assert Cache.put_all([
+             {"key5", "value5"},
+             {"key6", "value6"},
+             {"key7", "value7"}
+           ])
+
     assert %{"key5" => "value5", "key6" => "value6"} == Cache.get_all(["key5", "key6"])
   end
 

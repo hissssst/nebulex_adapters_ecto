@@ -335,6 +335,6 @@ defmodule Nebulex.Adapters.Ecto do
     :erlang.monotonic_time(:millisecond)
   end
 
-  defp hit?({1, _}), do: true
   defp hit?({0, _}), do: false
+  defp hit?({_, _}), do: true
 end
