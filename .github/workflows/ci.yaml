@@ -1,0 +1,71 @@
+name: CI Workflow
+on: [push, pull_request]
+jobs:
+  test:
+    name: CI
+    runs-on: ubuntu-latest
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_PORT: 15432
+      POSTGRES_USER: postgres
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Restore dependencies and _build
+      uses: actions/cache/restore@v3
+      with:
+        key: mix-${{ steps.setup-beam.outputs.otp-version }}-${{ steps.setup-beam.outputs.elixir-version }}-${{ hashFiles('mix.lock') }}
+        path: |
+          _build
+          deps
+        restore-keys: |
+          mix-${{ steps.setup-beam.outputs.otp-version }}-${{ steps.setup-beam.outputs.elixir-version }}-
+          mix-${{ steps.setup-beam.outputs.otp-version }}-
+          mix-
+
+    - name: Install Nix
+      uses: nixbuild/nix-quick-install-action@v25
+
+    - name: Restore and cache Nix store
+      uses: nix-community/cache-nix-action@v1
+      with:
+        linux-max-store-size: 1073741824
+        linux-gc-enabled: true
+        key: nix-${{  hashFiles('flake.nix', 'flake.lock', 'shell.nix') }}
+        restore-keys: |
+          nix-${{  hashFiles('flake.nix', 'flake.lock', 'shell.nix') }}
+
+    - name: Download and compile dependencies
+      run: |
+        nix develop --command mix deps.get
+        nix develop --command mix deps.compile
+
+    # TODO: Add dialyzer
+    - name: Check formatting and compile
+      run: |
+        nix develop --command mix format --check-formatted
+        nix develop --command mix compile --warnings-as-errors
+
+    - name: Lint
+      run: |
+        nix develop --command mix credo --strict
+
+    - name: Cache dependencies and _build
+      uses: actions/cache/save@v3
+      with:
+        key: mix-${{ steps.setup-beam.outputs.otp-version }}-${{ steps.setup-beam.outputs.elixir-version }}-${{ hashFiles('mix.lock') }}
+        path: |
+          _build
+          deps
+
+    - name: Prepare environment for the tests
+      uses: isbang/compose-action@v1.4.1
+      with:
+        compose-file: "./docker-compose.yml"
+
+    - name: Run tests
+      run: |
+        nix develop --command mix test --warnings-as-errors

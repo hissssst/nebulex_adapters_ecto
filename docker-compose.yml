@@ -1,0 +1,18 @@
+version: "3.9"
+services:
+  postgres:
+    image: postgres:14
+    volumes:
+      - ./data/postgres/data:/var/lib/postgresql/data
+      - ./data/postgres/log:/var/log/postgresql
+      - ./shared/postgres/config:/pg_config
+      - ./data/pg_log:/tmp/pg_log
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - PGPORT=${POSTGRES_PORT}
+      - POSTGRES_HOST_AUTH_METHOD=md5
+    ports:
+      - ${POSTGRES_PORT}:${POSTGRES_PORT}
+
+    command: postgres -c stats_temp_directory=/tmp
