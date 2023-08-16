@@ -15,33 +15,20 @@ defmodule Nebulex.Adapters.Ecto do
   @compile :inline
 
   require Logger
+  use Nebulex.Adapter.Stats
 
+  alias Nebulex.Adapter.Stats
   alias Nebulex.Adapters.Ecto.GC
   import Nebulex.Adapter, only: [defspan: 2]
 
   import :erlang, only: [term_to_binary: 1, binary_to_term: 1]
   import Ecto.Query
 
-  def check(repo, table) do
-    repo.query!("SELECT 1")
-    repo.query!("SELECT * FROM #{table} LIMIT 1")
-    :ok
-  rescue
-    e ->
-      Logger.error(
-        "It seems that your database is not yet configured for Nebulex.Adapters.Ecto. Please, refer to documentation"
-      )
-
-      reraise e, __STACKTRACE__
-  end
-
-  def setup(repo, table) do
-    repo.query!("CREATE TABLE #{table}_old (LIKE #{table} INCLUDING ALL)")
-  end
-
   ## Nebulex.Adapter
 
+  @impl true
   def init(opts) do
+    stats_counter = Stats.init(opts)
     %{repo: repo, table: table} = opts = Map.new(opts)
     check(repo, table)
 
@@ -51,11 +38,13 @@ defmodule Nebulex.Adapters.Ecto do
         max_amount: 100_000
       }
       |> Map.merge(opts)
+      |> Map.put(:stats_counter, stats_counter)
 
     child_spec = GC.child_spec(opts)
     {:ok, child_spec, opts}
   end
 
+  @impl true
   defmacro __before_compile__(_) do
     :ok
   end
@@ -281,7 +270,8 @@ defmodule Nebulex.Adapters.Ecto do
   end
 
   def do_execute(%{repo: repo, table: table}, :delete_all, nil, _opts) do
-    repo.delete_all(table)
+    {count, _} = repo.delete_all(table)
+    count
   end
 
   def do_execute(_, _, query, _) do
@@ -337,4 +327,17 @@ defmodule Nebulex.Adapters.Ecto do
 
   defp hit?({0, _}), do: false
   defp hit?({_, _}), do: true
+
+  defp check(repo, table) do
+    repo.query!("SELECT 1")
+    repo.query!("SELECT * FROM #{table} LIMIT 1")
+    :ok
+  rescue
+    e ->
+      Logger.error(
+        "It seems that your database is not yet configured for Nebulex.Adapters.Ecto. Please, refer to documentation"
+      )
+
+      reraise e, __STACKTRACE__
+  end
 end

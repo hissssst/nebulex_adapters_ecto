@@ -26,6 +26,38 @@ defmodule Nebulex.Adapters.EctoTest do
     assert "value1" == Cache.get("key1")
   end
 
+  test "put_new and get" do
+    assert Cache.put_new("key1", "value1")
+    refute Cache.put_new("key1", "value2")
+    assert "value1" == Cache.get("key1")
+  end
+
+  test "put and take" do
+    assert Cache.put(:x, 1)
+    assert 1 == Cache.take(:x)
+    refute Cache.take(:x)
+  end
+
+  test "touch" do
+    Cache.put(:x, 1, ttl: 200)
+    Process.sleep(100)
+    assert Cache.touch(:x)
+    Process.sleep(110)
+    assert Cache.has_key?(:x)
+  end
+
+  test "ttl" do
+    Cache.put(:x, 1, ttl: 200)
+    assert Cache.ttl(:x) == 200
+  end
+
+  test "put and replace and get" do
+    assert Cache.put("key1", "value1")
+    assert Cache.replace("key1", "value11")
+    refute Cache.replace("key2", "value22")
+    assert "value11" == Cache.get("key1")
+  end
+
   test "put with ttl" do
     assert Cache.put("key2", "value", ttl: 10)
     Process.sleep(20)
@@ -85,5 +117,33 @@ defmodule Nebulex.Adapters.EctoTest do
     assert Cache.put("key9", "value9")
     assert Cache.delete("key9")
     refute Cache.has_key?("key9")
+  end
+
+  test "count_all" do
+    Cache.put_all(for i <- 1..100, do: {i, i})
+    assert Cache.count_all() == 100
+  end
+
+  test "decr" do
+    Cache.decr(:x, 1, default: 10)
+    Cache.decr(:x, 1, default: 10)
+    assert Cache.get(:x) == 9
+  end
+
+  test "incr" do
+    Cache.incr(:x, 1, default: 10)
+    Cache.incr(:x, 1, default: 10)
+    assert Cache.get(:x) == 11
+  end
+
+  test "expire" do
+    Cache.put(:x, 1)
+    assert Cache.expire(:x, 10)
+    Process.sleep(11)
+    refute Cache.has_key?(:x)
+  end
+
+  test "stats" do
+    assert %Nebulex.Stats{} = Cache.stats()
   end
 end

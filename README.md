@@ -1,10 +1,10 @@
 # Nebulex.Adapters.Ecto
 
-Extremely simple Ecto Postres adapter for Nebulex Cache.
-Designed to be used as the last level adapter alongside inside multilevel cache.
+Extremely simple Ecto Postgres adapter for Nebulex Cache library.
+Designed to be used as the last level adapter inside multilevel cache.
 
 This adapter implements:
-1. Basic key-value kind of management.
+1. Basic key-value cache interface.
 2. Cache transactions.
 3. Basic queries without patterns.
 
