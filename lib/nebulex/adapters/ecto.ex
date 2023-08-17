@@ -35,6 +35,7 @@ defmodule Nebulex.Adapters.Ecto do
     opts =
       %{
         gc_timeout: :timer.hours(1),
+        strategy: :lrw,
         max_amount: 100_000
       }
       |> Map.merge(opts)
@@ -68,46 +69,84 @@ defmodule Nebulex.Adapters.Ecto do
   end
 
   defspan get(meta, key, _opts) do
-    %{repo: repo, table: table} = meta
+    %{repo: repo, table: table, strategy: strategy} = meta
 
-    table
-    |> base_query(key)
-    |> select([x], x.value)
-    |> repo.all()
-    |> case do
-      [value] -> binary_to_term(value)
-      [] -> nil
+    case strategy do
+      :lrw ->
+        table
+        |> base_query(key)
+        |> select([x], x.value)
+        |> repo.all()
+        |> case do
+          [value] -> binary_to_term(value)
+          [] -> nil
+        end
+
+      :lru ->
+        table
+        |> base_query(key)
+        |> select([x], x.value)
+        |> repo.update_all(set: [touched_at: now()])
+        |> case do
+          {1, [value]} -> binary_to_term(value)
+          [] -> nil
+        end
     end
   end
 
   defspan get_all(meta, keys, _opts) do
-    %{repo: repo, table: table} = meta
+    %{repo: repo, table: table, strategy: strategy} = meta
     now = now()
     keys = Enum.map(keys, &term_to_binary/1)
 
-    from(x in table,
-      where:
-        (is_nil(x.ttl) or x.touched_at + x.ttl >= ^now) and
-          x.key in ^keys,
-      select: {x.key, x.value}
-    )
-    |> repo.all()
+    case strategy do
+      :lrw ->
+        from(x in table,
+          where:
+            (is_nil(x.ttl) or x.touched_at + x.ttl >= ^now) and
+              x.key in ^keys,
+          select: {x.key, x.value}
+        )
+        |> repo.all()
+
+      :lru ->
+        from(x in table,
+          where:
+            (is_nil(x.ttl) or x.touched_at + x.ttl >= ^now) and
+              x.key in ^keys,
+          select: {x.key, x.value}
+        )
+        |> repo.update_all(set: [touched_at: now()])
+        |> elem(1)
+    end
     |> Map.new(fn {key, value} ->
       {binary_to_term(key), binary_to_term(value)}
     end)
   end
 
   defspan has_key?(meta, key) do
-    %{repo: repo, table: table} = meta
+    %{repo: repo, table: table, strategy: strategy} = meta
 
-    table
-    |> base_query(key)
-    |> select([x], true)
-    |> limit(1)
-    |> repo.all()
-    |> case do
-      [] -> false
-      [_] -> true
+    query = base_query(table, key)
+
+    case strategy do
+      :lrw ->
+        query
+        |> select([x], 1)
+        |> repo.all()
+        |> case do
+          [] -> false
+          [_] -> true
+        end
+
+      :lru ->
+        query
+        |> select([x], 1)
+        |> repo.update_all(set: [touched_at: now()])
+        |> case do
+          {0, _} -> false
+          {1, _} -> true
+        end
     end
   end
 

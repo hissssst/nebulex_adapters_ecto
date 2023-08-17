@@ -8,7 +8,7 @@ This adapter implements:
 2. Cache transactions.
 3. Basic queries without patterns.
 
-Cache eviction strategy is LRU based on the last touched timestamp.
+Cache eviction strategy is LRW or LRU based on the last touched timestamp.
 
 ## Installation
 
@@ -28,6 +28,9 @@ end
 In your `runtime.exs`:
 ```elixir
 config :my_app, MyApp.Cache,
+  # Available strategies are LRW and LRU
+  strategy: :lrw,
+
   # Repository to be used to access table with cache
   repo: MyApp.Repo,
 

@@ -69,3 +69,12 @@ jobs:
     - name: Run tests
       run: |
         nix develop --command mix test --warnings-as-errors
+
+    - name: Purge old caches
+      uses: deemp/purge-cache@v1
+      with:
+        debug: true
+        created: true
+        accessed: true
+        # 3 days
+        max-age: 86400
