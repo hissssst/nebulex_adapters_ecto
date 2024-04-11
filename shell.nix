@@ -3,7 +3,7 @@ with pkgs;
 let
   otp = beam.packages.erlangR26;
   basePackages = [
-    otp.elixir_1_15
+    otp.elixir_1_16
     otp.erlang
   ];
 
