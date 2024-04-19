@@ -44,6 +44,7 @@ config :my_app, MyApp.Cache,
   gc_timeout: :timer.hours(2)
 ```
 
+
 ### Table
 
 The most simple migration for cache table would look like this:
