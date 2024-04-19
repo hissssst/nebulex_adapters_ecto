@@ -30,13 +30,24 @@ jobs:
       uses: nixbuild/nix-quick-install-action@v25
 
     - name: Restore and cache Nix store
-      uses: nix-community/cache-nix-action@v1
+      uses: nix-community/cache-nix-action@v5
+      continue-on-error: true
       with:
-        linux-max-store-size: 1073741824
-        linux-gc-enabled: true
-        key: nix-${{  hashFiles('flake.nix', 'flake.lock', 'shell.nix') }}
-        restore-keys: |
-          nix-${{  hashFiles('flake.nix', 'flake.lock', 'shell.nix') }}
+        # restore and save a cache using this key
+        primary-key: nix-${{ runner.os }}-${{ hashFiles('**/*.nix') }}
+        # if there's no cache hit, restore a cache by this prefix
+        restore-prefixes-first-match: nix-${{ runner.os }}-
+        # collect garbage until Nix store size (in bytes) is at most this number
+        # before trying to save a new cache
+        gc-max-store-size-linux: 1073741824
+        # do purge caches
+        purge: true
+        # purge all versions of the cache
+        purge-prefixes: cache-${{ runner.os }}-
+        # created more than this number of seconds ago relative to the start of the `Post Restore` phase
+        purge-created: 0
+        # except the version with the `primary-key`, if it exists
+        purge-primary-key: never
 
     - name: Download and compile dependencies
       run: |
@@ -69,12 +80,3 @@ jobs:
     - name: Run tests
       run: |
         nix develop --command mix test --warnings-as-errors
-
-    - name: Purge old caches
-      uses: deemp/purge-cache@v1
-      with:
-        debug: true
-        created: true
-        accessed: true
-        # 3 days
-        max-age: 86400
