@@ -356,10 +356,6 @@ defmodule Nebulex.Adapters.Ecto do
     )
   end
 
-  defmacrop epoch(x) do
-    quote do: fragment("extract(epoch from ?)", unquote(x))
-  end
-
   defp now do
     :erlang.monotonic_time(:millisecond)
   end
