@@ -1,4 +1,4 @@
-# Nebulex.Adapters.Ecto
+# Nebulex.Adapters.Ecto [![Hex.pm Version](https://img.shields.io/hexpm/v/nebulex_adapters_ecto)](https://hex.pm/packages/nebulex_adapters_ecto)
 
 Extremely simple Ecto Postgres adapter for Nebulex Cache library.
 Designed to be used as the last level adapter inside multilevel cache.
