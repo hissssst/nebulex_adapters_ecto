@@ -41,7 +41,10 @@ config :my_app, MyApp.Cache,
   max_amount: 1000,
 
   # Timeout of garbage collection in milliseconds
-  gc_timeout: :timer.hours(2)
+  gc_timeout: :timer.hours(2),
+
+  # The function to generate timestamps in milliseconds
+  timestamp_mfa: {:erlang, :system_time, [:millisecond]}
 ```
 
 ### Table

@@ -2,9 +2,6 @@ defmodule Nebulex.Adapters.Ecto do
   @moduledoc """
   Adapter backed by generic Ecto table.
   Designed to be used as a highest level cache for data persistence.
-
-  ## Features
-
   """
 
   @behaviour Nebulex.Adapter
@@ -63,7 +60,7 @@ defmodule Nebulex.Adapters.Ecto do
     %{repo: repo, table: table} = meta
 
     table
-    |> base_query(key)
+    |> base_query(key, meta)
     |> repo.update_all(set: [ttl: ttl])
     |> hit?()
   end
@@ -74,7 +71,7 @@ defmodule Nebulex.Adapters.Ecto do
     case strategy do
       :lrw ->
         table
-        |> base_query(key)
+        |> base_query(key, meta)
         |> select([x], x.value)
         |> repo.all()
         |> case do
@@ -84,9 +81,9 @@ defmodule Nebulex.Adapters.Ecto do
 
       :lru ->
         table
-        |> base_query(key)
+        |> base_query(key, meta)
         |> select([x], x.value)
-        |> repo.update_all(set: [touched_at: now()])
+        |> repo.update_all(set: [touched_at: now(meta)])
         |> case do
           {1, [value]} -> binary_to_term(value)
           [] -> nil
@@ -96,7 +93,7 @@ defmodule Nebulex.Adapters.Ecto do
 
   defspan get_all(meta, keys, _opts) do
     %{repo: repo, table: table, strategy: strategy} = meta
-    now = now()
+    now = now(meta)
     keys = Enum.map(keys, &term_to_binary/1)
 
     case strategy do
@@ -116,7 +113,7 @@ defmodule Nebulex.Adapters.Ecto do
               x.key in ^keys,
           select: {x.key, x.value}
         )
-        |> repo.update_all(set: [touched_at: now()])
+        |> repo.update_all(set: [touched_at: now(meta)])
         |> elem(1)
     end
     |> Map.new(fn {key, value} ->
@@ -127,7 +124,7 @@ defmodule Nebulex.Adapters.Ecto do
   defspan has_key?(meta, key) do
     %{repo: repo, table: table, strategy: strategy} = meta
 
-    query = base_query(table, key)
+    query = base_query(table, key, meta)
 
     case strategy do
       :lrw ->
@@ -142,7 +139,7 @@ defmodule Nebulex.Adapters.Ecto do
       :lru ->
         query
         |> select([x], 1)
-        |> repo.update_all(set: [touched_at: now()])
+        |> repo.update_all(set: [touched_at: now(meta)])
         |> case do
           {0, _} -> false
           {1, _} -> true
@@ -155,8 +152,8 @@ defmodule Nebulex.Adapters.Ecto do
   end
 
   @doc false
-  def do_put(%{repo: repo, table: table}, key, value, ttl, :put, _opts) do
-    entry = to_entry(key, value, ttl)
+  def do_put(%{repo: repo, table: table} = meta, key, value, ttl, :put, _opts) do
+    entry = to_entry(key, value, ttl, now(meta))
 
     table
     |> repo.insert_all([entry],
@@ -166,25 +163,25 @@ defmodule Nebulex.Adapters.Ecto do
     |> hit?()
   end
 
-  def do_put(%{repo: repo, table: table}, key, value, ttl, :put_new, _opts) do
-    entry = to_entry(key, value, ttl)
+  def do_put(%{repo: repo, table: table} = meta, key, value, ttl, :put_new, _opts) do
+    entry = to_entry(key, value, ttl, now(meta))
 
     table
     |> repo.insert_all([entry], on_conflict: :nothing, conflict_target: :key)
     |> hit?()
   end
 
-  def do_put(%{repo: repo, table: table}, key, value, ttl, :replace, _opts) do
+  def do_put(%{repo: repo, table: table} = meta, key, value, ttl, :replace, _opts) do
     ttl = with :infinity <- ttl, do: nil
 
     to_set = [
       value: term_to_binary(value),
       ttl: ttl,
-      touched_at: now()
+      touched_at: now(meta)
     ]
 
     table
-    |> base_query(key)
+    |> base_query(key, meta)
     |> repo.update_all(set: to_set)
     |> hit?()
   end
@@ -194,8 +191,8 @@ defmodule Nebulex.Adapters.Ecto do
   end
 
   @doc false
-  def do_put_all(%{repo: repo, table: table}, entries, ttl, :put) do
-    now = now()
+  def do_put_all(%{repo: repo, table: table} = meta, entries, ttl, :put) do
+    now = now(meta)
     entries = Enum.map(entries, fn {key, value} -> to_entry(key, value, ttl, now) end)
 
     table
@@ -206,8 +203,8 @@ defmodule Nebulex.Adapters.Ecto do
     |> hit?()
   end
 
-  def do_put_all(%{repo: repo, table: table}, entries, ttl, :put_new) do
-    now = now()
+  def do_put_all(%{repo: repo, table: table} = meta, entries, ttl, :put_new) do
+    now = now(meta)
     entries = Enum.map(entries, fn {key, value} -> to_entry(key, value, ttl, now) end)
 
     table
@@ -219,7 +216,7 @@ defmodule Nebulex.Adapters.Ecto do
     %{repo: repo, table: table} = meta
 
     table
-    |> base_query(key)
+    |> base_query(key, meta)
     |> select([x], x.value)
     |> repo.delete_all()
     |> case do
@@ -232,8 +229,8 @@ defmodule Nebulex.Adapters.Ecto do
     %{repo: repo, table: table} = meta
 
     table
-    |> base_query(key)
-    |> repo.update_all(set: [touched_at: now()])
+    |> base_query(key, meta)
+    |> repo.update_all(set: [touched_at: now(meta)])
     |> hit?()
   end
 
@@ -241,7 +238,7 @@ defmodule Nebulex.Adapters.Ecto do
     %{repo: repo, table: table} = meta
 
     table
-    |> base_query(key)
+    |> base_query(key, meta)
     |> select([x], x.ttl)
     |> repo.all()
     |> case do
@@ -290,8 +287,8 @@ defmodule Nebulex.Adapters.Ecto do
   end
 
   @doc false
-  def do_execute(%{repo: repo, table: table}, :all, nil, _opts) do
-    now = now()
+  def do_execute(%{repo: repo, table: table} = meta, :all, nil, _opts) do
+    now = now(meta)
 
     from(x in table,
       where: is_nil(x.ttl) or x.touched_at + x.ttl >= ^now,
@@ -301,8 +298,8 @@ defmodule Nebulex.Adapters.Ecto do
     |> Enum.map(&binary_to_term/1)
   end
 
-  def do_execute(%{repo: repo, table: table}, :count_all, nil, _opts) do
-    now = now()
+  def do_execute(%{repo: repo, table: table} = meta, :count_all, nil, _opts) do
+    now = now(meta)
 
     from(x in table,
       where: is_nil(x.ttl) or x.touched_at + x.ttl >= ^now,
@@ -338,7 +335,7 @@ defmodule Nebulex.Adapters.Ecto do
 
   ## Helpers
 
-  defp to_entry(key, value, ttl, now \\ now()) do
+  defp to_entry(key, value, ttl, now) do
     ttl = with :infinity <- ttl, do: nil
 
     %{
@@ -349,10 +346,10 @@ defmodule Nebulex.Adapters.Ecto do
     }
   end
 
-  defp base_query(table, key) do
+  defp base_query(table, key, meta) do
     key = term_to_binary(key)
 
-    now = now()
+    now = now(meta)
 
     from(x in table,
       where:
@@ -362,8 +359,9 @@ defmodule Nebulex.Adapters.Ecto do
   end
 
   @doc false
-  def now do
-    :erlang.monotonic_time(:millisecond)
+  def now(meta) do
+    {m, f, a} = Map.get(meta, :timestamp_mfa, {:erlang, :monotonic_time, [:millisecond]})
+    apply(m, f, a)
   end
 
   defp hit?({0, _}), do: false

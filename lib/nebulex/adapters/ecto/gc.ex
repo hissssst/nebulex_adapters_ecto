@@ -29,6 +29,7 @@ defmodule Nebulex.Adapters.Ecto.GC do
     } = opts
 
     state = %{
+      opts: opts,
       timer: nil,
       table: table,
       repo: repo,
@@ -87,10 +88,10 @@ defmodule Nebulex.Adapters.Ecto.GC do
   defmacrop ctid, do: quote(do: fragment("ctid"))
 
   defp collect_garbage(state) do
-    %{repo: repo, table: table, max_amount: max_amount} = state
+    %{repo: repo, table: table, max_amount: max_amount, opts: opts} = state
     import Ecto.Query
 
-    now = Nebulex.Adapters.Ecto.now()
+    now = Nebulex.Adapters.Ecto.now(opts)
 
     # Remove stale entries
     repo.delete_all(from(x in table, where: x.touched_at + x.ttl < ^now))

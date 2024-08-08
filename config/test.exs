@@ -7,6 +7,14 @@ config :nebulex_adapters_ecto, Nebulex.Adapters.EctoTest.Cache,
   max_amount: 1000,
   gc_timeout: 1000
 
+config :nebulex_adapters_ecto, Nebulex.Adapters.Ecto.DifferentTimestampTest.Cache,
+  stats: true,
+  table: "cache_table",
+  timestamp_mfa: {Function, :identity, [123]},
+  repo: Nebulex.Adapters.EctoTest.Repo,
+  max_amount: 1000,
+  gc_timeout: 1000
+
 config :logger, level: :info
 
 config :nebulex_adapters_ecto, Nebulex.Adapters.EctoTest.Repo,
