@@ -2,6 +2,7 @@ defmodule Nebulex.Adapters.EctoTest do
   use ExUnit.Case
   doctest Nebulex.Adapters.Ecto
 
+  alias Nebulex.Adapters.Ecto.GC
   alias Nebulex.Adapters.EctoTest.Repo
 
   defmodule Cache do
@@ -13,11 +14,14 @@ defmodule Nebulex.Adapters.EctoTest do
   setup_all do
     Repo.start_link()
     Cache.start_link()
+
     :ok
   end
 
   setup do
     Cache.delete_all()
+    [{_, gc, _, _}] = Supervisor.which_children(Cache)
+    GC.force_gc(gc)
     :ok
   end
 
@@ -145,5 +149,21 @@ defmodule Nebulex.Adapters.EctoTest do
 
   test "stats" do
     assert %Nebulex.Stats{} = Cache.stats()
+  end
+
+  test "GC removes oldest entries" do
+    import Ecto.Query
+
+    Cache.put_all(for i <- 1..1000, do: {i, i})
+    Process.sleep(500)
+    Cache.put_all(for i <- 1001..2000, do: {i, i})
+    Process.sleep(500)
+
+    assert 1000 == Repo.aggregate("cache_table", :count)
+    present = :erlang.term_to_binary(1500)
+    removed = :erlang.term_to_binary(500)
+
+    assert Repo.exists?(from(x in "cache_table", where: x.key == ^present))
+    refute Repo.exists?(from(x in "cache_table", where: x.key == ^removed))
   end
 end

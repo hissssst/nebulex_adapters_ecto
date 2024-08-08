@@ -7,8 +7,14 @@ defmodule Nebulex.Adapters.Ecto.GC do
 
   use GenServer
 
+  @spec start_link(map()) :: GenServer.on_start()
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts)
+  end
+
+  @spec force_gc(pid() | GenServer.name(), timeout()) :: :ok
+  def force_gc(name, timeout \\ 30_000) do
+    GenServer.call(name, :force_gc, timeout)
   end
 
   def init(opts) do
@@ -56,6 +62,12 @@ defmodule Nebulex.Adapters.Ecto.GC do
     {:noreply, state}
   end
 
+  def handle_call(:force_gc, _from, %{timer: timer, telemetry_prefix: prefix} = state) do
+    timer && Process.cancel_timer(timer)
+    Telemetry.span(prefix ++ [:gc], %{}, fn -> {collect_garbage(state), %{}} end)
+    {:reply, :ok, restart_timer(state)}
+  end
+
   def handle_info(:tick, %{telemetry_prefix: prefix} = state) do
     Telemetry.span(prefix ++ [:gc], %{}, fn -> {collect_garbage(state), %{}} end)
     {:noreply, restart_timer(state)}
@@ -78,7 +90,7 @@ defmodule Nebulex.Adapters.Ecto.GC do
     %{repo: repo, table: table, max_amount: max_amount} = state
     import Ecto.Query
 
-    now = :erlang.monotonic_time(:millisecond)
+    now = Nebulex.Adapters.Ecto.now()
 
     # Remove stale entries
     repo.delete_all(from(x in table, where: x.touched_at + x.ttl < ^now))
@@ -88,7 +100,7 @@ defmodule Nebulex.Adapters.Ecto.GC do
       from(x in table,
         where:
           ctid() in subquery(
-            from(x in table, select: ctid(), order_by: x.touched_at, offset: ^max_amount)
+            from(x in table, select: ctid(), order_by: [desc: x.touched_at], offset: ^max_amount)
           )
       )
     )
