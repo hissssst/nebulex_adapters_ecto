@@ -154,6 +154,7 @@ defmodule Nebulex.Adapters.Ecto do
     do_put(state, key, value, ttl, kind, opts)
   end
 
+  @doc false
   def do_put(%{repo: repo, table: table}, key, value, ttl, :put, _opts) do
     entry = to_entry(key, value, ttl)
 
@@ -192,6 +193,7 @@ defmodule Nebulex.Adapters.Ecto do
     do_put_all(meta, entries, ttl, on_write)
   end
 
+  @doc false
   def do_put_all(%{repo: repo, table: table}, entries, ttl, :put) do
     now = now()
     entries = Enum.map(entries, fn {key, value} -> to_entry(key, value, ttl, now) end)
@@ -287,6 +289,7 @@ defmodule Nebulex.Adapters.Ecto do
     do_execute(state, kind, query, opts)
   end
 
+  @doc false
   def do_execute(%{repo: repo, table: table}, :all, nil, _opts) do
     now = now()
 
@@ -314,7 +317,8 @@ defmodule Nebulex.Adapters.Ecto do
   end
 
   def do_execute(_, _, query, _) do
-    raise Nebulex.QueryError, "Ecto adapter supports only nil queries. Got #{inspect(query)}"
+    raise Nebulex.QueryError,
+      message: "Ecto adapter supports only nil queries. Got #{inspect(query)}"
   end
 
   defspan stream(meta, query, _opts) do
@@ -327,7 +331,8 @@ defmodule Nebulex.Adapters.Ecto do
         |> Stream.map(&binary_to_term/1)
 
       _ ->
-        raise Nebulex.QueryError, "Ecto adapter supports only nil queries. Got #{inspect(query)}"
+        raise Nebulex.QueryError,
+          message: "Ecto adapter supports only nil queries. Got #{inspect(query)}"
     end
   end
 
@@ -356,7 +361,8 @@ defmodule Nebulex.Adapters.Ecto do
     )
   end
 
-  defp now do
+  @doc false
+  def now do
     :erlang.monotonic_time(:millisecond)
   end
 
@@ -370,7 +376,8 @@ defmodule Nebulex.Adapters.Ecto do
   rescue
     e ->
       Logger.error(
-        "It seems that your database is not yet configured for Nebulex.Adapters.Ecto. Please, refer to documentation"
+        "It seems that your database is not yet configured for " <>
+          "Nebulex.Adapters.Ecto. Please, refer to the documentation"
       )
 
       reraise e, __STACKTRACE__

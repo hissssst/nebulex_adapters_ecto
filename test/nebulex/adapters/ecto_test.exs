@@ -13,11 +13,14 @@ defmodule Nebulex.Adapters.EctoTest do
   setup_all do
     Repo.start_link()
     Cache.start_link()
+
     :ok
   end
 
   setup do
     Cache.delete_all()
+    [{_, gc, _, _}] = Supervisor.which_children(Cache)
+    Nebulex.Adapters.Ecto.GC.force_gc(gc)
     :ok
   end
 
