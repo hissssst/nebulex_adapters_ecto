@@ -2,6 +2,7 @@ defmodule Nebulex.Adapters.EctoTest do
   use ExUnit.Case
   doctest Nebulex.Adapters.Ecto
 
+  alias Nebulex.Adapters.Ecto.GC
   alias Nebulex.Adapters.EctoTest.Repo
 
   defmodule Cache do
@@ -20,7 +21,7 @@ defmodule Nebulex.Adapters.EctoTest do
   setup do
     Cache.delete_all()
     [{_, gc, _, _}] = Supervisor.which_children(Cache)
-    Nebulex.Adapters.Ecto.GC.force_gc(gc)
+    GC.force_gc(gc)
     :ok
   end
 
