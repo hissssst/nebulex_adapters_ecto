@@ -88,7 +88,7 @@ defmodule Nebulex.Adapters.Ecto.GC do
       from(x in table,
         where:
           ctid() in subquery(
-            from(x in table, select: ctid(), order_by: x.touched_at, offset: ^max_amount)
+            from(x in table, select: ctid(), order_by: [desc: x.touched_at], offset: ^max_amount)
           )
       )
     )
