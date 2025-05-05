@@ -86,7 +86,7 @@ defmodule Nebulex.Adapters.Ecto do
         |> repo.update_all(set: [touched_at: now(meta)])
         |> case do
           {1, [value]} -> binary_to_term(value)
-          [] -> nil
+          {0, []} -> nil
         end
     end
   end
