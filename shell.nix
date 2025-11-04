@@ -1,9 +1,9 @@
 { pkgs ? (import <nixpkgs> {}), ... }:
 with pkgs;
 let
-  otp = beam.packages.erlangR26;
+  otp = beam.packages.erlang_28;
   basePackages = [
-    otp.elixir_1_16
+    otp.elixir_1_19
     otp.erlang
   ];
 

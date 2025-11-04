@@ -66,6 +66,10 @@ defmodule Nebulex.Adapters.Ecto do
   end
 
   defspan get(meta, key, _opts) do
+    do_get(meta, key)
+  end
+
+  defp do_get(meta, key) do
     %{repo: repo, table: table, strategy: strategy} = meta
 
     case strategy do
@@ -147,12 +151,12 @@ defmodule Nebulex.Adapters.Ecto do
     end
   end
 
-  defspan put(state, key, value, ttl, kind, opts) do
-    do_put(state, key, value, ttl, kind, opts)
+  defspan put(state, key, value, ttl, kind, _opts) do
+    do_put(state, key, value, ttl, kind)
   end
 
   @doc false
-  def do_put(%{repo: repo, table: table} = meta, key, value, ttl, :put, _opts) do
+  def do_put(%{repo: repo, table: table} = meta, key, value, ttl, :put) do
     entry = to_entry(key, value, ttl, now(meta))
 
     table
@@ -163,7 +167,7 @@ defmodule Nebulex.Adapters.Ecto do
     |> hit?()
   end
 
-  def do_put(%{repo: repo, table: table} = meta, key, value, ttl, :put_new, _opts) do
+  def do_put(%{repo: repo, table: table} = meta, key, value, ttl, :put_new) do
     entry = to_entry(key, value, ttl, now(meta))
 
     table
@@ -171,7 +175,7 @@ defmodule Nebulex.Adapters.Ecto do
     |> hit?()
   end
 
-  def do_put(%{repo: repo, table: table} = meta, key, value, ttl, :replace, _opts) do
+  def do_put(%{repo: repo, table: table} = meta, key, value, ttl, :replace) do
     ttl = with :infinity <- ttl, do: nil
 
     to_set = [
@@ -252,16 +256,21 @@ defmodule Nebulex.Adapters.Ecto do
 
     {:ok, result} =
       repo.transaction(fn ->
-        case get(meta, key, []) do
-          int when is_integer(int) ->
-            value = int + amount
-            put(meta, key, value, ttl, :put, [])
-            value
+        current_value =
+          case do_get(meta, key) do
+            int when is_integer(int) ->
+              int
 
-          _ ->
-            put(meta, key, default, ttl, :put, [])
-            default
-        end
+            nil ->
+              default
+
+            other ->
+              raise "Expected to have an integer value, got #{:erts_internal.term_type(other)}"
+          end
+
+        new_value = current_value + amount
+        do_put(meta, key, new_value, ttl, :put)
+        new_value
       end)
 
     result

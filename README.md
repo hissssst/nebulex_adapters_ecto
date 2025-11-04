@@ -70,3 +70,12 @@ end
 
 However, feel free to create your own indexes. For example, to speed up
 garbage collection, I'd suggest using `touched_at + ttl` btree index.
+
+## Notes
+
+### Do not use `incr` and `decr`
+
+This library implements these features, but it was originally designed to support
+arbitrary values, therefore it uses `term_to_binary` encoding, what makes every
+counter update call a transaction with a read and write query, which is the
+least efficient way to do counter updates.

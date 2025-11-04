@@ -131,13 +131,13 @@ defmodule Nebulex.Adapters.EctoTest do
   test "decr" do
     Cache.decr(:x, 1, default: 10)
     Cache.decr(:x, 1, default: 10)
-    assert Cache.get(:x) == 9
+    assert Cache.get(:x) == 8
   end
 
   test "incr" do
     Cache.incr(:x, 1, default: 10)
     Cache.incr(:x, 1, default: 10)
-    assert Cache.get(:x) == 11
+    assert Cache.get(:x) == 12
   end
 
   test "expire" do

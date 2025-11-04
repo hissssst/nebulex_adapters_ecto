@@ -27,10 +27,10 @@ jobs:
           mix-
 
     - name: Install Nix
-      uses: nixbuild/nix-quick-install-action@v25
+      uses: nixbuild/nix-quick-install-action@v34
 
     - name: Restore and cache Nix store
-      uses: nix-community/cache-nix-action@v5
+      uses: nix-community/cache-nix-action@v6
       continue-on-error: true
       with:
         # restore and save a cache using this key
